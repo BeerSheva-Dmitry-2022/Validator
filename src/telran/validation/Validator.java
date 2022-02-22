@@ -2,7 +2,8 @@ package telran.validation;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.*;
-import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.temporal.TemporalAccessor;
 import java.util.*;
 import telran.validation.constraints.Valid;
 
@@ -20,7 +21,7 @@ public class Validator {
 						res.addAll(validate(field.get(obj)));
 						return;
 					}
-					
+
 					String message = check(annotation, field.get(obj));
 					if (message != null) {
 						res.add(message);
@@ -33,49 +34,62 @@ public class Validator {
 		return res;
 	}
 
-	private static String check(Annotation annotation, Object object) throws Exception {
+	private static String check(Annotation annotation, Object fieldData) throws Exception {
 		String nameMethod = "valid" + annotation.annotationType().getSimpleName();
-		Method method = Validator.class.getDeclaredMethod(nameMethod, Annotation.class, Object.class);
-		return (String) method.invoke(Validator.class, annotation, object);
+		try {
+			Method method = Validator.class.getDeclaredMethod(nameMethod, Annotation.class, Object.class);
+			return (String) method.invoke(null, annotation, fieldData);
+		} catch (Exception e) {
+			return null;
+		}
 	}
 
-	@SuppressWarnings("unused")
-	private static String validNotNull(Annotation annotation, Object object) throws Exception {
-		return object == null ? getMessage(annotation) : null;
+	static String validNotNull(Annotation annotation, Object fieldData) throws Exception {
+		return fieldData == null ? getMessage(annotation) : null;
 	}
 
-	@SuppressWarnings("unused")
-	private static String validNotEmpty(Annotation annotation, Object object) throws Exception {
-		return ((String) object).length() == 0 ? getMessage(annotation) : null;
+	static String validNotEmpty(Annotation annotation, Object fieldData) throws Exception {
+		if (!(fieldData instanceof String)) {
+			return "Wrong validation type, should be string";
+		}
+		return (fieldData == null || ((String) fieldData).isEmpty()) ? getMessage(annotation) : null;
 	}
 
-	@SuppressWarnings("unused")
-	private static String validMin(Annotation annotation, Object object) throws Exception {
-		return object.getClass().getSimpleName().equals("Integer")
-				? (int) object < getValue(annotation) ? getMessage(annotation) : null
-				: (long) object < getValue(annotation) ? getMessage(annotation) : null;
-
+	static String validMin(Annotation annotation, Object fieldData) throws Exception {
+		if (!(fieldData instanceof Number)) {
+			return "Wrong validation type, should be number";
+		}
+		return Double.parseDouble(fieldData.toString()) < getValue(annotation) ? getMessage(annotation) : null;
 	}
 
-	@SuppressWarnings("unused")
-	private static String validMax(Annotation annotation, Object object) throws Exception {
-		return (long) object > getValue(annotation) ? getMessage(annotation) : null;
+	static String validMax(Annotation annotation, Object fieldData) throws Exception {
+		if (!(fieldData instanceof Number)) {
+			return "Wrong validation type, should be number";
+		}
+		return Double.parseDouble(fieldData.toString()) > getValue(annotation) ? getMessage(annotation) : null;
 	}
 
-	@SuppressWarnings("unused")
-	private static String validPast(Annotation annotation, Object object) throws Exception {
-		return LocalDate.now().isBefore((LocalDate) object) ? getMessage(annotation) : null;
+	static String validPast(Annotation annotation, Object fieldData) throws Exception {
+		if (!(fieldData instanceof TemporalAccessor)) {
+			return "Wrong validation type, should be LocalDate";
+		}
+		return (fieldData == null || LocalDateTime.now().isBefore(LocalDateTime.from((TemporalAccessor) fieldData)))
+				? getMessage(annotation)
+				: null;
 	}
 
-	@SuppressWarnings("unused")
-	private static String validFuture(Annotation annotation, Object object) throws Exception {
-		return LocalDate.now().isAfter((LocalDate) object) ? getMessage(annotation) : null;
+	static String validFuture(Annotation annotation, Object fieldData) throws Exception {
+		if (!(fieldData instanceof TemporalAccessor)) {
+			return "Wrong validation type, should be LocalDate";
+		}
+		return (fieldData == null || LocalDateTime.now().isAfter(LocalDateTime.from((TemporalAccessor) fieldData)))
+				? getMessage(annotation)
+				: null;
 	}
 
-	@SuppressWarnings("unused")
-	private static String validEmail(Annotation annotation, Object object) throws Exception {
+	static String validEmail(Annotation annotation, Object fieldData) throws Exception {
 		String regex = "^[A-Za-z0-9+_.-]+@(.+)$";
-		return ((String) object).matches(regex) ? "" : getMessage(annotation);
+		return (fieldData != null && fieldData.toString().matches(regex)) ? "" : getMessage(annotation);
 	}
 
 	private static String getMessage(Annotation annotation) throws Exception {
